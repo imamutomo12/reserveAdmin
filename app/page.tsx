@@ -74,11 +74,11 @@ const AdminDashboard = () => {
       <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
       <div className="flex-1 overflow-auto">
         <header className="p-6 bg-white shadow-sm flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-gray-800">
+          <h1 className="text-2xl font-bold text-black">
             Selamat Datang, Admin!
           </h1>
           <div className="flex items-center space-x-4">
-            <p className="text-gray-600">{user.email}</p>
+            <p className="text-black">{user.email}</p>
             <button
               onClick={handleLogout}
               className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition-colors flex items-center space-x-2"

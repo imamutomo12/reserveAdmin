@@ -126,7 +126,7 @@ const EventsManager = () => {
   return (
     <div className="p-8">
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-semibold">Manajemen Event Publik</h2>
+        <h2 className="text-2xl font-semibold text-black">Manajemen Event Publik</h2>
         <button
           onClick={() => {
             setFormData({
@@ -144,10 +144,10 @@ const EventsManager = () => {
       </div>
       {isFormOpen && (
         <div className="mb-6 p-6 border rounded-lg shadow-md bg-white">
-          <h3 className="text-xl font-medium mb-4">
+          <h3 className="text-xl font-medium mb-4 text-black">
             {formData.id_event ? "Edit" : "Tambah"} Event
           </h3>
-          <form onSubmit={handleSave} className="space-y-4">
+          <form onSubmit={handleSave} className="space-y-4 text-black">
             <input
               type="text"
               placeholder="Nama Event"
@@ -212,16 +212,16 @@ const EventsManager = () => {
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">
                 Nama Event
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">
                 Taman
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">
                 Tanggal
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">
                 Aksi
               </th>
             </tr>

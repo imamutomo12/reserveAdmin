@@ -45,10 +45,12 @@ const LoginPage = () => {
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-100 font-sans">
       <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow-md">
-        <h2 className="text-2xl font-bold text-center">Login Admin</h2>
-        <form onSubmit={handleLogin} className="space-y-4">
+        <h2 className="text-2xl font-bold text-center text-black">
+          Login Admin
+        </h2>
+        <form onSubmit={handleLogin} className="space-y-4 text-black">
           <div>
-            <label className="block text-gray-700">Email</label>
+            <label className="block text-black">Email</label>
             <input
               type="email"
               value={email}
@@ -58,7 +60,7 @@ const LoginPage = () => {
             />
           </div>
           <div>
-            <label className="block text-gray-700">Kata Sandi</label>
+            <label className="block text-black">Kata Sandi</label>
             <input
               type="password"
               value={password}

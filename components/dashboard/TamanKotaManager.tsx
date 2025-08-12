@@ -3,7 +3,9 @@ import React, { useState, useEffect } from "react";
 import { supabase } from "../../utils/supabase";
 import { Database } from "../../types/supabase";
 
-type TamanKota = Database["public"]["Tables"]["TAMAN_KOTA"]["Row"];
+type TamanKota = Database["public"]["Tables"]["TAMAN_KOTA"]["Row"] & {
+  fotoUrls?: string[]; // tambahkan properti opsional fotoUrls
+};
 type TamanKotaForm = Omit<TamanKota, "id_taman"> & {
   id: number | null;
   fotoFiles: (File | null)[];
@@ -29,11 +31,48 @@ const TamanKotaManager = () => {
   }, []);
 
   const fetchTamanKota = async () => {
-    const { data, error } = await supabase.from("TAMAN_KOTA").select("*");
-    if (!error) {
-      setTamanKotaList(data || []);
+    const { data: tamanData, error: tamanError } = await supabase
+      .from("TAMAN_KOTA")
+      .select("*");
+
+    if (tamanError) {
+      console.error("Error fetching taman kota:", tamanError);
+      return;
+    }
+
+    // Jika ada taman yang ditemukan
+    if (tamanData && tamanData.length > 0) {
+      // Ambil semua id taman
+      const tamanIds = tamanData.map((t) => t.id_taman);
+
+      // Fetch foto dari FOTO_TAMAN yang id_tamannya ada di tamanIds
+      const { data: fotoData, error: fotoError } = await supabase
+        .from("FOTO_TAMAN")
+        .select("id_taman, url_foto")
+        .in("id_taman", tamanIds);
+
+      if (fotoError) {
+        console.error("Error fetching foto taman:", fotoError);
+        return;
+      }
+
+      // Gabungkan foto ke taman berdasarkan id_taman
+      const tamanWithFotos = tamanData.map((t) => {
+        const fotos = fotoData
+          ? fotoData
+              .filter((f) => f.id_taman === t.id_taman)
+              .map((f) => f.url_foto)
+          : [];
+
+        return {
+          ...t,
+          fotoUrls: fotos,
+        };
+      });
+
+      setTamanKotaList(tamanWithFotos);
     } else {
-      console.error("Error fetching taman kota:", error);
+      setTamanKotaList([]);
     }
   };
 
@@ -44,7 +83,15 @@ const TamanKotaManager = () => {
     let newTamanKotaId = id;
 
     if (id) {
-      await supabase.from("TAMAN_KOTA").update(rest).eq("id_taman", id);
+      const { error: updateError } = await supabase
+        .from("TAMAN_KOTA")
+        .update(rest)
+        .eq("id_taman", id);
+
+      if (updateError) {
+        console.error("Error updating taman kota:", updateError);
+        return;
+      }
     } else {
       const { data: newTamanKota, error: tamanKotaError } = await supabase
         .from("TAMAN_KOTA")
@@ -56,7 +103,9 @@ const TamanKotaManager = () => {
         console.error("Error inserting taman kota:", tamanKotaError);
         return;
       }
+
       newTamanKotaId = newTamanKota.id_taman;
+      console.log("Taman kota baru berhasil dibuat dengan ID:", newTamanKotaId);
     }
 
     // Upload files and collect URLs
@@ -67,19 +116,30 @@ const TamanKotaManager = () => {
         const fileExt = file.name.split(".").pop();
         const fileName = `taman_${newTamanKotaId}_${Date.now()}_${i}.${fileExt}`;
         const filePath = `taman_kota/${fileName}`;
+
         const { error: uploadError } = await supabase.storage
           .from("taman-kota-foto")
           .upload(filePath, file);
-        if (!uploadError) {
-          const { data: urlData } = supabase.storage
-            .from("taman-kota-foto")
-            .getPublicUrl(filePath);
-          if (urlData?.publicUrl) {
-            uploadedUrls.push(urlData.publicUrl);
-          }
+
+        if (uploadError) {
+          console.error("Upload gagal untuk file:", file.name, uploadError);
+          continue;
+        }
+
+        const { data: urlData } = supabase.storage
+          .from("taman-kota-foto")
+          .getPublicUrl(filePath);
+
+        console.log(`Public URL untuk file ${file.name}:`, urlData?.publicUrl);
+
+        if (urlData?.publicUrl) {
+          uploadedUrls.push(urlData.publicUrl);
         }
       }
     }
+
+    console.log("Uploaded URLs:", uploadedUrls);
+    console.log("New Taman Kota ID:", newTamanKotaId);
 
     // Insert FOTO_TAMAN records
     if (uploadedUrls.length > 0 && newTamanKotaId) {
@@ -87,7 +147,20 @@ const TamanKotaManager = () => {
         id_taman: newTamanKotaId,
         url_foto: url,
       }));
-      await supabase.from("FOTO_TAMAN").insert(fotoData as any);
+
+      console.log("Data yang akan dikirim ke tabel FOTO_TAMAN:", fotoData);
+
+      const { error: fotoInsertError } = await supabase
+        .from("FOTO_TAMAN")
+        .insert(fotoData);
+
+      if (fotoInsertError) {
+        console.error("Gagal insert ke FOTO_TAMAN:", fotoInsertError.message);
+      } else {
+        console.log("Insert FOTO_TAMAN berhasil!");
+      }
+    } else {
+      console.warn("Tidak ada foto yang diupload atau ID taman tidak valid.");
     }
 
     fetchTamanKota();
@@ -108,8 +181,8 @@ const TamanKotaManager = () => {
     setFormData({
       ...data,
       id: data.id_taman,
-      fotoFiles: [null], // or [] if you want to clear it
-      fotoUrls: [""], // or fetch the actual URLs if you want to show existing photos
+      fotoFiles: new Array(data.fotoUrls?.length || 1).fill(null),
+      fotoUrls: data.fotoUrls || [],
     });
     setIsFormOpen(true);
   };
@@ -210,6 +283,8 @@ const TamanKotaManager = () => {
               className="w-full text-gray-700 border p-2 rounded-md"
               required
             />
+
+            <label className="block text-gray-700">Status Ketersediaan</label>
             <select
               value={formData.status_ketersediaan}
               onChange={(e) =>
@@ -225,7 +300,26 @@ const TamanKotaManager = () => {
               <option value="Tersedia">Tersedia</option>
               <option value="Tutup Sementara">Tutup Sementara</option>
             </select>
-            <input
+
+            <label className="block text-gray-700">Tingkat Aksesibilitas</label>
+            <select
+              value={formData.tingkat_aksesibilitas as string}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  tingkat_aksesibilitas: e.target.value as
+                    | "Tinggi"
+                    | "Sedang"
+                    | "Rendah",
+                })
+              }
+              className="w-full text-gray-700 border p-2 rounded-md"
+            >
+              <option value="Tinggi">Tinggi</option>
+              <option value="Sedang">Sedang</option>
+              <option value="Rendah">Rendah</option>
+            </select>
+            {/* <input
               type="text"
               placeholder="Tingkat Aksesibilitas"
               value={formData.tingkat_aksesibilitas as string}
@@ -237,7 +331,7 @@ const TamanKotaManager = () => {
               }
               className="w-full text-gray-700 border p-2 rounded-md"
               required
-            />
+            /> */}
             {formData.status_ketersediaan === "Tutup Sementara" && (
               <textarea
                 placeholder="Keterangan Status"
@@ -253,8 +347,22 @@ const TamanKotaManager = () => {
             )}
             <div className="space-y-2">
               <label className="block text-gray-700">URL Foto</label>
-              {formData.fotoUrls.map((url, index) => (
-                <div key={index} className="flex gap-2 items-center">
+
+              {formData.fotoUrls.length > 0 && (
+                <div className="flex gap-2 flex-wrap mb-2">
+                  {formData.fotoUrls.map((url, index) => (
+                    <img
+                      key={index}
+                      src={url}
+                      alt={`Foto ${index + 1}`}
+                      className="h-16 w-16 object-cover rounded border"
+                    />
+                  ))}
+                </div>
+              )}
+
+              {formData.fotoUrls.map((_, index) => (
+                <div key={index} className="mb-2">
                   <input
                     type="file"
                     accept="image/*"
@@ -266,27 +374,6 @@ const TamanKotaManager = () => {
                     }}
                     className="w-full text-gray-700 border p-2 rounded-md"
                   />
-                  {url && (
-                    <img
-                      src={url}
-                      alt={`Foto ${index + 1}`}
-                      className="h-12 w-12 object-cover rounded"
-                    />
-                  )}
-                  {formData.fotoUrls.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const newUrls = formData.fotoUrls.filter(
-                          (_, i) => i !== index
-                        );
-                        setFormData({ ...formData, fotoUrls: newUrls });
-                      }}
-                      className="bg-red-500 text-white p-2 rounded-md"
-                    >
-                      Hapus
-                    </button>
-                  )}
                 </div>
               ))}
             </div>
@@ -319,6 +406,9 @@ const TamanKotaManager = () => {
                 Status
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Foto
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Aksi
               </th>
             </tr>
@@ -339,6 +429,24 @@ const TamanKotaManager = () => {
                   >
                     {t.status_ketersediaan}
                   </span>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <div className="flex space-x-2">
+                    {t.fotoUrls && t.fotoUrls.length > 0 ? (
+                      t.fotoUrls.map((url, idx) => (
+                        <img
+                          key={idx}
+                          src={url}
+                          alt={`Foto taman ${t.nama_taman} #${idx + 1}`}
+                          className="w-16 h-16 object-cover rounded"
+                        />
+                      ))
+                    ) : (
+                      <span className="text-gray-400 italic">
+                        Tidak ada foto
+                      </span>
+                    )}
+                  </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                   <button
